@@ -1,0 +1,71 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["nameLower"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['uid', 'name', 'email', 'createdAt'])",
+        "uid": { ".validate": "newData.val() === $uid" },
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+        "nameLower": { ".validate": "newData.isString()" },
+        "email": { ".validate": "newData.isString() && newData.val() === auth.token.email" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "status": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['state', 'lastChanged'])",
+        "state": { ".validate": "newData.val() === 'online' || newData.val() === 'offline'" },
+        "lastChanged": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "messages": {
+      "$chatId": {
+        ".read": "auth != null && ($chatId.beginsWith(auth.uid + '_') || $chatId.endsWith('_' + auth.uid))",
+        ".indexOn": ["createdAt"],
+        "$messageId": {
+          ".write": "auth != null && !data.exists() && ($chatId.beginsWith(auth.uid + '_') || $chatId.endsWith('_' + auth.uid))",
+          ".validate": "newData.hasChildren(['senderId', 'type', 'createdAt']) && newData.child('senderId').val() === auth.uid",
+          "senderId": { ".validate": "newData.isString()" },
+          "type": { ".validate": "newData.val() === 'text' || newData.val() === 'location'" },
+          "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000" },
+          "location": {
+            ".validate": "newData.hasChildren(['latitude', 'longitude'])",
+            "latitude": { ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90" },
+            "longitude": { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
+            "accuracy": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "userChats": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".indexOn": ["updatedAt"],
+        "$chatId": {
+          ".write": "auth != null && ($chatId.beginsWith(auth.uid + '_') || $chatId.endsWith('_' + auth.uid)) && ($chatId.beginsWith($uid + '_') || $chatId.endsWith('_' + $uid))",
+          "unread": { ".validate": "newData.isNumber() && newData.val() >= 0 && ($uid === auth.uid ? newData.val() === 0 || newData.val() === data.val() : true)" }
+        }
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".indexOn": ["createdAt"],
+        "$notificationId": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('fromId').val() === auth.uid))",
+          ".validate": "!newData.exists() || newData.hasChildren(['type', 'messageType', 'fromId', 'chatId', 'preview', 'createdAt', 'read'])",
+          "read": { ".validate": "newData.isBoolean() && (auth.uid === $uid || newData.val() === false)" }
+        }
+      }
+    }
+  }
+}
